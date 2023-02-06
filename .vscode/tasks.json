@@ -22,6 +22,24 @@
       "problemMatcher": [],
       "label": "npm: lint",
       "detail": "prettier --check ."
+    },
+    {
+      "type": "shell",
+      "label": "setEnv",
+      "command": "workon ooxml",
+    },
+    {
+      "type": "shell",
+      "label": "compile",
+      "command": "workon ooxml && npm run compile"
+    },
+    {
+      "label": "preLaunch",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "setEnv",
+        "compile"
+      ]
     }
   ]
 }

@@ -15,11 +15,11 @@ import {
   window,
   workspace,
 } from 'vscode';
-import xmlFormatter from 'xml-formatter';
 import packageJson from '../package.json';
 import { ExtensionUtilities } from './extension-utilities';
 import { OOXMLFileCache } from './ooxml-file-cache';
 import { FileNode, OOXMLTreeDataProvider } from './ooxml-tree-view-provider';
+import * as rx from './rapid-xml-formatter';
 
 const extensionName = packageJson.displayName;
 
@@ -492,12 +492,10 @@ export class OOXMLViewer {
    */
   private async formatXml(filePath: string): Promise<void> {
     // Need to format the normal/prev and the compare separately for the diff to work
-    const xmlFormatConfig = { indentation: '  ', collapseContent: true };
     const formatNormalXml = async () => {
       const fileContent = this.textDecoder.decode(await this.cache.getCachedNormalFile(filePath));
       if (fileContent.startsWith('<?xml')) {
-        // for some reason xmlFormatter doesn't always format everything without minifying it first
-        const formattedXml = xmlFormatter(ExtensionUtilities.minifyXml(fileContent), xmlFormatConfig);
+        const formattedXml = rx.formatXml(fileContent);
         await this.cache.updateCachedFilesNoCompare(filePath, this.textEncoder.encode(formattedXml));
       }
     };
@@ -505,8 +503,7 @@ export class OOXMLViewer {
     const formatCompareXml = async () => {
       const compareFileContent = this.textDecoder.decode(await this.cache.getCachedCompareFile(filePath));
       if (compareFileContent.startsWith('<?xml')) {
-        // for some reason xmlFormatter doesn't always format everything without minifying it first
-        const formattedXml = xmlFormatter(ExtensionUtilities.minifyXml(compareFileContent), xmlFormatConfig);
+        const formattedXml = rx.formatXml(compareFileContent);
         await this.cache.updateCompareFile(filePath, this.textEncoder.encode(formattedXml));
       }
     };

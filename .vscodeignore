@@ -6,3 +6,9 @@
 !README.md
 !CHANGELOG.md
 !LICENSE
+!prebuilds
+!assets
+
+../node-ffi-napi/node_modules
+../ref-napi/node_modules
+
