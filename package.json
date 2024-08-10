@@ -204,6 +204,6 @@
   "dependencies": {
     "jszip": "^3.10.1",
     "mime-types": "^2.1.35",
-    "xml-formatter": "^3.6.2"
+    "pretty-fast-xml": "file:../pretty-fast-xml"
   }
 }
