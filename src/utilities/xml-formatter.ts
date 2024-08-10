@@ -1,8 +1,7 @@
-import xmlFormatter from 'xml-formatter';
+import { FormatOptions, formatXml, minifyXml } from 'pretty-fast-xml';
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
-const xmlFormatConfig = { indentation: '  ', collapseContent: true };
 
 /**
  * The xml formatter.
@@ -24,10 +23,8 @@ export class XmlFormatter {
       return data;
     }
 
-    // for some reason xmlFormatter doesn't always format everything without minifying it first
-    const minifiedXml = XmlFormatter.minify(data, true);
-    const formattedXml = xmlFormatter(textDecoder.decode(minifiedXml), xmlFormatConfig);
-    return textEncoder.encode(formattedXml);
+    const result = formatXml(textDecoder.decode(data));
+    return result.succeeded ? textEncoder.encode(result.formatted) : data;
   }
 
   /**
@@ -42,12 +39,14 @@ export class XmlFormatter {
     }
 
     const text = textDecoder.decode(data);
-    const minifiedXml = xmlFormatter.minify(text, {
-      filter: preserveComments ? undefined : node => node.type !== 'Comment',
-      collapseContent: true,
-    });
 
-    return textEncoder.encode(minifiedXml);
+    const options: FormatOptions = {
+      removeComments: !preserveComments,
+    };
+
+    const result = minifyXml(text, options);
+
+    return result.succeeded ? textEncoder.encode(result.formatted) : data;
   }
 
   /**
