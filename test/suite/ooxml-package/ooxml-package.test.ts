@@ -7,6 +7,7 @@ import { OOXMLPackage } from '../../../src/ooxml-package/ooxml-package';
 import { OOXMLPackageFileAccessor, PackageFile } from '../../../src/ooxml-package/ooxml-package-file-accessor';
 import { OOXMLPackageFileCache } from '../../../src/ooxml-package/ooxml-package-file-cache';
 import { OOXMLPackageTreeView } from '../../../src/ooxml-package/ooxml-package-tree-view';
+import { DocumentSearchViewProvider } from '../../../src/search-view/document-search-view-provider';
 import { FileNode } from '../../../src/tree-view/ooxml-tree-view-provider';
 import { ExtensionUtilities } from '../../../src/utilities/extension-utilities';
 import { FileSystemUtilities } from '../../../src/utilities/file-system-utilities';
@@ -467,6 +468,127 @@ suite('OOXMLPackage', async function () {
 
       expect(errorStub.callCount).to.eq(1);
       expect((errorStub.args[0][0] as Error).message).to.eq(err.message);
+    });
+  });
+
+  suite('searchDocumentText', async function () {
+    const docxPath = 'C:/path/to/sample.docx';
+
+    function buildPackageWithFiles(filePaths: string[]): OOXMLPackage {
+      const root = new FileNode();
+      root.isOOXMLPackage = true;
+      for (const path of filePaths) {
+        const segs = path.split('/');
+        let parent = root;
+        for (let i = 0; i < segs.length; i++) {
+          const fullPath = segs.slice(0, i + 1).join('/');
+          let node = parent.children.find(c => c.nodePath === fullPath);
+          if (!node) {
+            node = FileNode.create(fullPath, parent, docxPath);
+          }
+          parent = node;
+        }
+      }
+      ooxmlPackageTreeView.getRootFileNode.returns(root);
+      return new OOXMLPackage(docxPath, ooxmlFileAccessor, ooxmlPackageTreeView, cache, extensionSettings);
+    }
+
+    function makeSearchProvider(): SinonStubbedInstance<DocumentSearchViewProvider> {
+      return createStubInstance(DocumentSearchViewProvider);
+    }
+
+    test('warns and returns when invoked on a non-Word package', async function () {
+      const showWarningStub = stub(ExtensionUtilities, 'showWarning');
+      stubs.push(showWarningStub);
+      const provider = makeSearchProvider();
+
+      // ooxmlPackage from outer setup() uses ooxmlFilePath = 'package.json' (not Word)
+      await ooxmlPackage.searchDocumentText(undefined, provider);
+
+      expect(showWarningStub.callCount).to.equal(1);
+      expect(showWarningStub.args[0][0] as string).to.match(/Word packages/);
+      expect(provider.show.callCount).to.equal(0);
+    });
+
+    test('warns when single-part mode is invoked on a non-XML part', async function () {
+      const docxPackage = buildPackageWithFiles(['word/document.xml', 'word/media/image1.png']);
+      const showWarningStub = stub(ExtensionUtilities, 'showWarning');
+      const withProgressStub = stub(ExtensionUtilities, 'withProgress').callsFake(async fn => await fn());
+      stubs.push(showWarningStub, withProgressStub);
+      const provider = makeSearchProvider();
+
+      await docxPackage.searchDocumentText('word/media/image1.png', provider);
+
+      expect(showWarningStub.callCount).to.equal(1);
+      expect(provider.show.callCount).to.equal(0);
+    });
+
+    test('gathers eligible parts and forwards to the search view provider', async function () {
+      const xml = new TextEncoder().encode('<?xml version="1.0"?><w:p><w:r><w:t>hello</w:t></w:r></w:p>');
+      const docxPackage = buildPackageWithFiles([
+        'word/document.xml',
+        'word/header1.xml',
+        'word/styles.xml',
+        '_rels/.rels',
+      ]);
+      cache.getCachedNormalFile.returns(Promise.resolve(xml));
+      cache.getNormalFileCachePath.callsFake((p: string) => `cache/normal/${p}`);
+      const withProgressStub = stub(ExtensionUtilities, 'withProgress').callsFake(async fn => await fn());
+      stubs.push(withProgressStub);
+      const provider = makeSearchProvider();
+
+      await docxPackage.searchDocumentText(undefined, provider);
+
+      expect(provider.show.callCount).to.equal(1);
+      const scopeKey = provider.show.args[0][0];
+      const title = provider.show.args[0][1];
+      const parts = provider.show.args[0][2];
+      const oversized = provider.show.args[0][3];
+      expect(scopeKey).to.equal(docxPath);
+      expect(title).to.match(/Search '.*' document text/);
+      expect(parts.map(p => p.partPath)).to.deep.equal(['word/document.xml', 'word/header1.xml']);
+      expect(parts[0].cacheFilePath).to.equal('cache/normal/word/document.xml');
+      expect(oversized).to.deep.equal([]);
+    });
+
+    test('reports oversized parts via the search view provider', async function () {
+      const encoder = new TextEncoder();
+      const smallXml = encoder.encode('<?xml?><w:p><w:r><w:t>x</w:t></w:r></w:p>');
+      const bigXml = encoder.encode(
+        '<?xml?><w:p><w:r><w:t xml:space="preserve">' +
+          ' '.repeat(extensionSettings.maximumXmlPartsFileSizeBytes + 1) +
+          '</w:t></w:r></w:p>',
+      );
+      const docxPackage = buildPackageWithFiles(['word/document.xml', 'word/header1.xml']);
+      cache.getCachedNormalFile.withArgs('word/document.xml').returns(Promise.resolve(smallXml));
+      cache.getCachedNormalFile.withArgs('word/header1.xml').returns(Promise.resolve(bigXml));
+      cache.getNormalFileCachePath.callsFake((p: string) => `cache/normal/${p}`);
+      const withProgressStub = stub(ExtensionUtilities, 'withProgress').callsFake(async fn => await fn());
+      stubs.push(withProgressStub);
+      const provider = makeSearchProvider();
+
+      await docxPackage.searchDocumentText(undefined, provider);
+
+      expect(provider.show.callCount).to.equal(1);
+      const parts = provider.show.args[0][2];
+      const oversized = provider.show.args[0][3];
+      expect(parts.length).to.equal(1);
+      expect(parts[0].partPath).to.equal('word/document.xml');
+      expect(oversized).to.deep.equal(['word/header1.xml']);
+    });
+
+    test('shows error when an exception is thrown', async function () {
+      const docxPackage = buildPackageWithFiles(['word/document.xml']);
+      cache.getCachedNormalFile.throws(new Error('boom'));
+      const withProgressStub = stub(ExtensionUtilities, 'withProgress').callsFake(async fn => await fn());
+      const showErrorStub = stub(ExtensionUtilities, 'showError').returns(Promise.resolve());
+      stubs.push(withProgressStub, showErrorStub);
+      const provider = makeSearchProvider();
+
+      await docxPackage.searchDocumentText(undefined, provider);
+
+      expect(showErrorStub.callCount).to.equal(1);
+      expect((showErrorStub.args[0][0] as Error).message).to.equal('boom');
     });
   });
 

@@ -97,4 +97,19 @@ export class FileSystemUtilities {
       return -1;
     }
   }
+
+  /**
+   * Returns the file's `(mtime, size)` for cheap change detection. Returns
+   * undefined if the file can't be stat'd.
+   *
+   * @param {string} filePath The path to the file to stat.
+   */
+  static async getStat(filePath: string): Promise<{ mtime: number; size: number } | undefined> {
+    try {
+      const fileStats = await workspace.fs.stat(Uri.file(filePath));
+      return { mtime: fileStats.mtime, size: fileStats.size };
+    } catch {
+      return undefined;
+    }
+  }
 }

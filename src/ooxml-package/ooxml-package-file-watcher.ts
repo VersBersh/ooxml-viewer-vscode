@@ -43,6 +43,17 @@ export class OOXMLPackageFileWatcher {
       logger.trace(`File system did change triggered`);
       const newStats = await workspace.fs.stat(uri);
 
+      // Suppress watcher fires that came from our own `updatePackage` write.
+      // Without this, every save triggers a 30+ second `populateOOXMLViewer`
+      // re-extract even though the cache is already in the correct state
+      // (we just wrote it). We only want populate to fire when the file
+      // really did change externally (another tool, vcs, etc).
+      if (ooxmlPackage.consumeSuppressedWatcherFire()) {
+        logger.trace('Suppressed self-write watcher fire');
+        stats = newStats;
+        return;
+      }
+
       if (!locked && stats.mtime !== newStats.mtime) {
         logger.trace('Locking file system watcher');
         locked = true;

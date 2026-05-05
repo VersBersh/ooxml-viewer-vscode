@@ -2,6 +2,7 @@ import { basename } from 'path';
 import { ExtensionContext } from 'vscode';
 import { OOXMLExtensionSettings } from './ooxml-extension-settings';
 import { OOXMLPackageFacade } from './ooxml-package/ooxml-package-facade';
+import { DocumentSearchViewProvider } from './search-view/document-search-view-provider';
 import { OOXMLTreeDataProvider } from './tree-view/ooxml-tree-view-provider';
 import { ExtensionUtilities } from './utilities/extension-utilities';
 import { FileSystemUtilities } from './utilities/file-system-utilities';
@@ -12,6 +13,7 @@ import logger from './utilities/logger';
  */
 export class OOXMLViewer {
   private ooxmlPackages: OOXMLPackageFacade[];
+  private searchProvider: DocumentSearchViewProvider | undefined;
 
   private get contextStorageUri() {
     return (
@@ -108,6 +110,31 @@ export class OOXMLViewer {
     logger.info(`Searching '${ooxmlPackagePath}'`);
     const ooxmlPackage = this.findOOXMLPackage(ooxmlPackagePath);
     await ooxmlPackage?.searchOOXMLParts();
+  }
+
+  /**
+   * Sets the singleton search view provider used to host the side-panel
+   * document search UI. Called from `activate()` once the provider has been
+   * registered with VS Code.
+   */
+  setSearchProvider(provider: DocumentSearchViewProvider): void {
+    this.searchProvider = provider;
+  }
+
+  /**
+   * Search the visible Word document text in a package via the side-panel search view.
+   *
+   * @param {string} ooxmlPackagePath The path to the ooxml file.
+   * @param {string} [filePath] Optional single part path; if omitted, all eligible parts are searched.
+   */
+  async searchDocumentText(ooxmlPackagePath: string, filePath?: string): Promise<void> {
+    logger.info(`Document text search on '${ooxmlPackagePath}'${filePath ? ` (part '${filePath}')` : ''}`);
+    if (!this.searchProvider) {
+      logger.error('Search provider was not registered');
+      return;
+    }
+    const ooxmlPackage = this.findOOXMLPackage(ooxmlPackagePath);
+    await ooxmlPackage?.searchDocumentText(filePath, this.searchProvider);
   }
 
   /**

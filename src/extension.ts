@@ -1,5 +1,6 @@
 import { commands, ExtensionContext, Uri, window } from 'vscode';
 import { OOXMLViewer } from './ooxml-viewer';
+import { DocumentSearchViewProvider } from './search-view/document-search-view-provider';
 import { FileNode, OOXMLTreeDataProvider } from './tree-view/ooxml-tree-view-provider';
 
 import packageJson from '../package.json';
@@ -21,10 +22,14 @@ export async function activate(context: ExtensionContext): Promise<void> {
   ooxmlViewer = new OOXMLViewer(treeDataProvider, settings, context);
   await ooxmlViewer.reset();
 
+  const searchProvider = new DocumentSearchViewProvider(context.extensionUri);
+  ooxmlViewer.setSearchProvider(searchProvider);
+
   context.subscriptions.push(
     treeView,
 
     window.registerTreeDataProvider('ooxmlViewer', treeDataProvider),
+    window.registerWebviewViewProvider(DocumentSearchViewProvider.viewId, searchProvider),
     commands.registerCommand('ooxmlViewer.openOoxmlPackage', (file: Uri) => ooxmlViewer.openOOXMLPackage(file.fsPath)),
     commands.registerCommand('ooxmlViewer.removeOoxmlPackage', (fileNode: FileNode) =>
       ooxmlViewer.removeOOXMLPackage(fileNode.ooxmlPackagePath),
@@ -37,6 +42,12 @@ export async function activate(context: ExtensionContext): Promise<void> {
       ooxmlViewer.getDiff(fileNode.ooxmlPackagePath, fileNode.nodePath),
     ),
     commands.registerCommand('ooxmlViewer.searchParts', (fileNode: FileNode) => ooxmlViewer.searchOOXMLParts(fileNode.ooxmlPackagePath)),
+    commands.registerCommand('ooxmlViewer.searchDocumentText', (fileNode: FileNode) => {
+      const filePath = fileNode.isFile() ? fileNode.nodePath : undefined;
+      return ooxmlViewer.searchDocumentText(fileNode.ooxmlPackagePath, filePath);
+    }),
+    commands.registerCommand('ooxmlViewer.closeDocumentSearch', () => searchProvider.close()),
+    commands.registerCommand('ooxmlViewer.refreshDocumentSearch', () => searchProvider.manualRefresh()),
   );
 }
 

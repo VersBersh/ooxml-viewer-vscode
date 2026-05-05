@@ -1,4 +1,15 @@
-import { commands, Position, ProgressLocation, Range, TextEditorEdit, Uri, window, workspace } from 'vscode';
+import {
+  commands,
+  Position,
+  ProgressLocation,
+  Range,
+  Selection,
+  TextEditorEdit,
+  TextEditorRevealType,
+  Uri,
+  window,
+  workspace,
+} from 'vscode';
 import packageJson from '../../package.json';
 import logger from './logger';
 import { OOXMLCommand } from './ooxml-commands';
@@ -174,6 +185,20 @@ export class ExtensionUtilities {
     const command = 'vscode.diff';
     logger.trace(`Executing '${command}' on '${filePath1}' and '${filePath2}'`);
     await commands.executeCommand('vscode.diff', Uri.file(filePath1), Uri.file(filePath2), title);
+  }
+
+  /**
+   * Opens a file and selects a range, revealing it in the editor.
+   *
+   * @param {string} filePath The file path.
+   * @param {Range} range The range to select.
+   */
+  static async openFileAtRange(filePath: string, range: Range): Promise<void> {
+    logger.trace(`Opening '${filePath}' at range ${range.start.line}:${range.start.character}`);
+    const doc = await workspace.openTextDocument(Uri.file(filePath));
+    const editor = await window.showTextDocument(doc);
+    editor.selection = new Selection(range.start, range.end);
+    editor.revealRange(range, TextEditorRevealType.InCenterIfOutsideViewport);
   }
 
   /**

@@ -53,6 +53,23 @@
         "when": "view == ooxmlViewer"
       },
       {
+        "command": "ooxmlViewer.searchDocumentText",
+        "title": "Search Document Text",
+        "when": "view == ooxmlViewer"
+      },
+      {
+        "command": "ooxmlViewer.refreshDocumentSearch",
+        "title": "Refresh Search",
+        "icon": "$(refresh)",
+        "when": "view == ooxmlViewer.search"
+      },
+      {
+        "command": "ooxmlViewer.closeDocumentSearch",
+        "title": "Close Search",
+        "icon": "$(close)",
+        "when": "view == ooxmlViewer.search"
+      },
+      {
         "command": "ooxmlViewer.removeOoxmlPackage",
         "title": "Remove OOXML Package",
         "when": "view == ooxmlViewer"
@@ -95,18 +112,38 @@
           "command": "ooxmlViewer.clear",
           "group": "navigation",
           "when": "view == ooxmlViewer"
+        },
+        {
+          "command": "ooxmlViewer.refreshDocumentSearch",
+          "group": "navigation@1",
+          "when": "view == ooxmlViewer.search"
+        },
+        {
+          "command": "ooxmlViewer.closeDocumentSearch",
+          "group": "navigation@2",
+          "when": "view == ooxmlViewer.search"
         }
       ],
       "view/item/context": [
         {
           "command": "ooxmlViewer.showDiff",
           "group": "navigation",
-          "when": "view == ooxmlViewer && viewItem == file"
+          "when": "view == ooxmlViewer && viewItem =~ /^file/"
         },
         {
           "command": "ooxmlViewer.searchParts",
           "group": "navigation",
           "when": "view == ooxmlViewer && viewItem == package"
+        },
+        {
+          "command": "ooxmlViewer.searchDocumentText",
+          "group": "navigation",
+          "when": "view == ooxmlViewer && viewItem == package"
+        },
+        {
+          "command": "ooxmlViewer.searchDocumentText",
+          "group": "navigation",
+          "when": "view == ooxmlViewer && viewItem == file:xml"
         },
         {
           "command": "ooxmlViewer.removeOoxmlPackage",
@@ -132,6 +169,18 @@
           "when": "false"
         },
         {
+          "command": "ooxmlViewer.searchDocumentText",
+          "when": "false"
+        },
+        {
+          "command": "ooxmlViewer.closeDocumentSearch",
+          "when": "false"
+        },
+        {
+          "command": "ooxmlViewer.refreshDocumentSearch",
+          "when": "false"
+        },
+        {
           "command": "ooxmlViewer.removeOoxmlPackage",
           "when": "false"
         }
@@ -143,6 +192,13 @@
           "id": "ooxmlViewer",
           "name": "OOXML Viewer",
           "visibility": "visible"
+        },
+        {
+          "id": "ooxmlViewer.search",
+          "name": "Search",
+          "type": "webview",
+          "visibility": "hidden",
+          "when": "ooxmlViewer.searchVisible"
         }
       ]
     },

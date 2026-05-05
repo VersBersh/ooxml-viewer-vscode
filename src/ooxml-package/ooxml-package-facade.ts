@@ -1,4 +1,5 @@
 import { getExtensionSettings } from '../ooxml-extension-settings';
+import { DocumentSearchViewProvider } from '../search-view/document-search-view-provider';
 import { OOXMLTreeDataProvider } from '../tree-view/ooxml-tree-view-provider';
 import logger from '../utilities/logger';
 import { OOXMLPackage } from './ooxml-package';
@@ -67,6 +68,16 @@ export class OOXMLPackageFacade {
    */
   async searchOOXMLParts(): Promise<void> {
     await this.ooxmlPackage.searchOOXMLParts();
+  }
+
+  /**
+   * Search the visible Word document text via the side-panel search view.
+   *
+   * @param {string | undefined} filePath Optional single part; if omitted, all eligible Word parts are searched.
+   * @param {DocumentSearchViewProvider} searchProvider The view provider that hosts the search UI.
+   */
+  async searchDocumentText(filePath: string | undefined, searchProvider: DocumentSearchViewProvider): Promise<void> {
+    await this.ooxmlPackage.searchDocumentText(filePath, searchProvider);
   }
 
   /**

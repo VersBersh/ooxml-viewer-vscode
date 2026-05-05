@@ -81,11 +81,11 @@ export class FileNode implements TreeItem {
   private _status: 'created' | 'deleted' | 'modified' | 'unchanged' = 'unchanged';
 
   get collapsibleState(): TreeItemCollapsibleState | undefined {
-    return this.contextValue === FileNodeType.File ? TreeItemCollapsibleState.None : TreeItemCollapsibleState.Expanded;
+    return this.isFile() ? TreeItemCollapsibleState.None : TreeItemCollapsibleState.Expanded;
   }
 
   get command(): Command | undefined {
-    if (this.nodePath && this.contextValue === FileNodeType.File) {
+    if (this.nodePath && this.isFile()) {
       return {
         command: 'ooxmlViewer.viewFile',
         title: 'View file',
@@ -95,8 +95,29 @@ export class FileNode implements TreeItem {
     }
   }
 
-  get contextValue(): FileNodeType | undefined {
-    return this.isOOXMLPackage ? FileNodeType.Package : this.children.length ? FileNodeType.Folder : FileNodeType.File;
+  // contextValue drives `viewItem` in menu `when` clauses. We deliberately
+  // encode XML-ness in the value (`file` vs `file:xml`) instead of relying
+  // on `resourceExtname` — that context key isn't reliably populated for
+  // tree items in this VS Code version, so a `resourceExtname == .xml`
+  // guard on the menu makes the entry vanish entirely. Encoding it here
+  // gives menus a stable handle to target.
+  get contextValue(): string | undefined {
+    if (this.isOOXMLPackage) {
+      return FileNodeType.Package;
+    }
+    if (this.children.length) {
+      return FileNodeType.Folder;
+    }
+    return this.nodePath.toLowerCase().endsWith('.xml') ? `${FileNodeType.File}:xml` : FileNodeType.File;
+  }
+
+  /**
+   * True for any leaf file node (XML or otherwise). Use this instead of
+   * `contextValue === FileNodeType.File`, which now misses XML files.
+   */
+  isFile(): boolean {
+    const v = this.contextValue;
+    return v !== undefined && (v === FileNodeType.File || v.startsWith(`${FileNodeType.File}:`));
   }
 
   get resourceUri(): Uri {
@@ -120,7 +141,7 @@ export class FileNode implements TreeItem {
       case 'modified':
         return Uri.file(join(__filename, '..', '..', 'resources', 'icons', 'asterisk.yellow.svg'));
       default:
-        return this.contextValue === FileNodeType.File ? ThemeIcon.File : ThemeIcon.Folder;
+        return this.isFile() ? ThemeIcon.File : ThemeIcon.Folder;
     }
   }
 
